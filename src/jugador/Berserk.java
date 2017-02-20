@@ -1,5 +1,6 @@
 package jugador;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -10,6 +11,7 @@ import iarena.Jugada;
 import iarena.Movimiento;
 import iarena.Movimiento.Direccion;
 import iarena.app.IArena;
+import javafx.scene.image.Image;
 
 public class Berserk extends Guerrero{
 
@@ -31,12 +33,18 @@ public class Berserk extends Guerrero{
 			}
 		case 1:
 			List<FichaGuerrero> fichas = IArena.getFichas();
+			Collections.shuffle(fichas);
 			for(FichaGuerrero ficha : fichas){
 				if (!ficha.nombre.equals(this.getClass().getSimpleName()))
 					return new Disparo(ficha);
 			}
 		}
 		return null;
+	}
+
+	@Override
+	public Image getAvatar() {
+		return new Image(this.getClass().getClassLoader().getResourceAsStream("recursos/arquera.png"));
 	}
 
 }

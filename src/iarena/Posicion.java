@@ -1,10 +1,10 @@
 package iarena;
 
 public class Posicion {
-	public int x;
-	public int y;
+	public double x;
+	public double y;
 	
-	public Posicion(int x, int y){
+	public Posicion(double x, double y){
 		this.x = x;
 		this.y = y;
 	}

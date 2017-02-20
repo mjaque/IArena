@@ -1,13 +1,19 @@
 package iarena;
 
+import javafx.scene.Group;
+
 public class FichaGuerrero {
+	private static int ID = 0;
+	public int id = FichaGuerrero.ID++;
 	public String nombre;
 	public Posicion posicion;
 	public int vida;
 	public int disparos;
+	public Group grupo;
 
 	public FichaGuerrero clon(){
 		FichaGuerrero clon = new FichaGuerrero();
+		clon.id = this.id;
 		clon.nombre = this.nombre;
 		clon.posicion = new Posicion(this.posicion.x, this.posicion.y);
 		clon.vida = this.vida;
@@ -54,7 +60,7 @@ public class FichaGuerrero {
 
 	@Override
 	public String toString() {
-		return "FichaGuerrero [nombre=" + nombre + ", posicion=" + posicion + ", vida=" + vida + ", disparos="
+		return "FichaGuerrero [id=" + id + ", nombre=" + nombre + ", posicion=" + posicion + ", vida=" + vida + ", disparos="
 				+ disparos + "]";
 	}
 	

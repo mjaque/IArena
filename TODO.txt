@@ -1,0 +1,8 @@
+TODO:
+
+- Si el tiro pasa por un obstáculo (jugador), le da al otro.
+- BUG: Se salen del tablero.
+- Guerrero.Shooter - Se situa en una esquina y dispara a todo el que esté a tiro.
+- Berserk. Será más eficaz en grupo si elije el blanco al azar.
+- Evitar las Excepciones de los jugadores.
+- Evitar calcular distancia con posición nula.

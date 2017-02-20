@@ -4,16 +4,18 @@ import iarena.Guerrero;
 import iarena.Jugada;
 import javafx.scene.image.Image;
 
-public class Sparring extends Guerrero{
+public class Humano extends Guerrero{
 
 	@Override
 	public Jugada getJugada() {
+		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public Image getAvatar() {
-		return new Image(this.getClass().getClassLoader().getResourceAsStream("recursos/GolemCard.png"));
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }
