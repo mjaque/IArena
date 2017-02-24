@@ -24,7 +24,6 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.stage.Stage;
 import jugador.FactoriaGuerreros;
@@ -316,6 +315,10 @@ public class IArena extends Application {
 		return listaFichas;
 	}
 
+	public static FichaGuerrero getMiFicha(Guerrero yo){
+		return fichas.get(yo);
+	}
+	
 	public static double distancia(Posicion a, Posicion b) {
 		return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
 	}

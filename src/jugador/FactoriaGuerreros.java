@@ -13,11 +13,8 @@ public class FactoriaGuerreros implements InterfaceFactoriaGuerreros{
 		List<Guerrero> lista = new ArrayList<>();
 		lista.add(new Sparring());
 		lista.add(new Berserk());
-		lista.add(new Berserk());
-		lista.add(new Berserk());
-		lista.add(new Berserk());
-		lista.add(new Sparring());
 		lista.add(new Shooter());
+		lista.add(new PsychoKiller());
 		return lista;
 	}
 
