@@ -21,19 +21,23 @@ import iarena.Movimiento;
 import iarena.Posicion;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
+import javafx.event.EventHandler;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import jugador.FactoriaGuerreros;
+import jugador.Humano;
 
-public class IArena extends Application {
+public class IArena extends Application implements EventHandler<MouseEvent>{
 	// Constantes y Atributos del Juego
 	private ScheduledExecutorService cicloJuego;
 	private AnimationTimer animador;
@@ -43,13 +47,15 @@ public class IArena extends Application {
 	private static Random rand = new Random();
 
 	// Constantes y Atributos del Escenario
+	Scene escenario1;
+	Humano humano = null;
 	public static final int ANCHO = 800;
 	public static final int ALTO = 700;
 
 	// Constantes JavaFX
 	public static final long INTERVALO_ANIMACION = 1; // segundos
 	public static final double PASO_MOVIMIENTO = 1;
-	public static final double PASO_DISPARO = 10;
+	public static final double PASO_DISPARO = 3;
 	public static final double ESCALA = 1; // Número de pixels por posición
 											// del tablero.
 	protected static final double ANCHO_GUERRERO = 25;
@@ -81,8 +87,8 @@ public class IArena extends Application {
 		fondo.setFitWidth(ANCHO * ESCALA);
 		fondo.setFitHeight(ALTO * ESCALA);
 		raiz.getChildren().add(fondo);
-		Scene escena1 = new Scene(scrollPane);
-		ventana.setScene(escena1);
+		escenario1 = new Scene(scrollPane);
+		ventana.setScene(escenario1);
 
 		preparar();
 		ventana.show();
@@ -153,11 +159,9 @@ public class IArena extends Application {
 					}
 					guerrero.disparos--;
 					if (IArena.distancia(guerrero.posicion, disparo.objetivo.posicion) < guerrero.alcance_disparo) {
-						System.out.println("DIANA");
 						disparo.resultado = Resultado.DIANA;
 						IArena.guerreros.get(disparo.objetivo.id).vida -= guerrero.dano_disparo;
 					} else {
-						System.out.println("FALLO");
 						disparo.resultado = Resultado.FALLO;
 					}
 				}
@@ -242,7 +246,6 @@ public class IArena extends Application {
 					}
 					// Colocamos los disparos en sus posiciones iniciales
 					for (Entry<Guerrero, Disparo> entry : IArena.disparos.entrySet()) {
-						System.out.println("Colocando disparo");
 						Disparo disparo = entry.getValue();
 						Guerrero tirador = entry.getKey();
 						Circle proyectil = new Circle(RADIO_DISPARO);
@@ -282,7 +285,6 @@ public class IArena extends Application {
 					double distancia = Math.sqrt(Math.pow(xInicial - xActual, 2) + Math.pow(yInicial - yActual, 2));
 					if (distancia > tirador.alcance_disparo / ESCALA) {
 						// Quitamos el disparo
-						System.out.println("QUITAMOS el disparo.");
 						raiz.getChildren().remove(disparo.grupo);
 						disparosFX.remove(disparo.grupo);
 						it.remove();
@@ -357,6 +359,7 @@ public class IArena extends Application {
 			}
 			if (guerrero.nombre == null)
 				guerrero.nombre = guerrero.getClass().getSimpleName();
+			
 			guerrero.posicion = new Posicion(rand.nextInt(ANCHO), rand.nextInt(ALTO));
 			Guerrero clon = guerrero.clon();
 			ImageView avatar = new ImageView(guerrero.getAvatar());
@@ -370,6 +373,14 @@ public class IArena extends Application {
 
 			IArena.guerreros.put(clon.id, clon); // La lista que maneja IArena
 													// (con el Group)
+			
+			for (Guerrero clon2 : IArena.guerreros.values()){
+				if (clon2 instanceof Humano){
+					System.out.println("HAY Humano.");
+					escenario1.setOnMouseClicked(this);
+					this.humano = (Humano)clon2;
+				}
+			}
 		}
 		System.out.println("Registrados " + IArena.guerreros.size() + " guerreros.");
 
@@ -398,6 +409,25 @@ public class IArena extends Application {
 	public static double distanciaFX(Node n1, Node n2) {
 		return Math.sqrt(Math.pow(n1.getTranslateX() - n2.getTranslateX(), 2)
 				+ Math.pow(n1.getTranslateY() - n2.getTranslateY(), 2));
+	}
+
+	@Override
+	public void handle(MouseEvent event) {
+		
+		if (humano == null)
+			return;
+		
+		if (event.getButton().equals(MouseButton.PRIMARY)){
+			Posicion destino = new Posicion(event.getSceneX() / ESCALA, event.getSceneY() / ESCALA); 
+			humano.jugada = new Movimiento(destino);
+		}
+		if (event.getButton().equals(MouseButton.SECONDARY)){
+			for (Guerrero guerrero : IArena.guerreros.values())
+				if (event.getSceneX() > guerrero.grupo.getTranslateX() && event.getSceneX() < guerrero.grupo.getTranslateX() + ANCHO_GUERRERO)
+					if (event.getSceneY() > guerrero.grupo.getTranslateY() && event.getSceneY() < guerrero.grupo.getTranslateY() + ALTO_GUERRERO)
+						humano.jugada = new Disparo(guerrero);
+		}
+			
 	}
 
 }

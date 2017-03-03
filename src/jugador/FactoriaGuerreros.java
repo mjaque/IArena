@@ -16,6 +16,7 @@ public class FactoriaGuerreros implements InterfaceFactoriaGuerreros{
 		lista.add(new Berserk());
 		lista.add(new Berserk());
 		lista.add(new Shooter());
+		lista.add(new Humano());
 		//lista.add(new Minho());
 		//lista.add(new Sabueso());
 		//lista.add(new TPM());
