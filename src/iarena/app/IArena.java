@@ -1,17 +1,21 @@
 package iarena.app;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import iarena.Disparo;
-import iarena.DisparoFX;
-import iarena.FichaGuerrero;
+import iarena.Disparo.Resultado;
 import iarena.Guerrero;
+import iarena.Guerrero.Estado;
 import iarena.Jugada;
 import iarena.Movimiento;
 import iarena.Posicion;
@@ -24,307 +28,376 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Line;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import jugador.FactoriaGuerreros;
 
 public class IArena extends Application {
-	public static final int ANCHO = 15;
-	public static final int ALTO = 10;
-	public static final int VIDA = 10;
-	public static final int DISPAROS = 50;
-	public static final double DISTANCIA_DISPARO = 10;
-
-	private static List<Guerrero> guerreros;
-	private static Map<Guerrero, FichaGuerrero> fichas;
+	// Constantes y Atributos del Juego
+	private ScheduledExecutorService cicloJuego;
+	private AnimationTimer animador;
+	private static Map<Integer, Guerrero> guerreros;
+	private static Map<Guerrero, Movimiento> movimientos;
+	private static Map<Guerrero, Disparo> disparos;
 	private static Random rand = new Random();
 
-	private static Map<FichaGuerrero, Movimiento> movimientos;
+	// Constantes y Atributos del Escenario
+	public static final int ANCHO = 800;
+	public static final int ALTO = 700;
 
 	// Constantes JavaFX
-	public static final double ANCHO_PANTALLA = 780; // pixels
-	public static final double ALTO_PANTALLA = 680; // pixels
-	public static final double ANCHO_CELDA = 50; // pixels
-	public static final double ALTO_CELDA = ANCHO_CELDA * 1.25;
-	public static final double INTERVALO_ANIMACION = 2; // segundos
-	public static final double ERROR_MOV = 0.1;
+	public static final long INTERVALO_ANIMACION = 1; // segundos
 	public static final double PASO_MOVIMIENTO = 1;
 	public static final double PASO_DISPARO = 10;
+	public static final double ESCALA = 1; // Número de pixels por posición
+											// del tablero.
+	protected static final double ANCHO_GUERRERO = 25;
+	protected static final double ALTO_GUERRERO = ANCHO_GUERRERO * 1.25;
+	protected static final double RADIO_DISPARO = 5;
 
 	// Atributos JavaFX
 	private Stage ventana;
 	private Group raiz;
 	private ScrollPane scrollPane;
-	private List<ImageView> heridas = new ArrayList<>();
-	private List<DisparoFX> disparosFX = new ArrayList<>();
+	private boolean cicloNuevo;
 
 	public static void main(String[] args) {
-		//System.out.println(Math.toDegrees(Math.atan2(-1, -1)));
 		Application.launch(args);
 	}
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		ventana = primaryStage;
-		ventana.setWidth(ANCHO_PANTALLA);
-		ventana.setHeight(ALTO_PANTALLA);
+		ventana.setWidth(ANCHO * ESCALA);
+		ventana.setHeight(ALTO * ESCALA);
 		ventana.setTitle("IArena");
 
+		// Configuración del Escenario
 		raiz = new Group();
 		scrollPane = new ScrollPane(raiz);
 		Image imgFondo = new Image(this.getClass().getClassLoader().getResourceAsStream("recursos/grass.jpg"));
-		Image imgHerida = new Image(
-				this.getClass().getClassLoader().getResourceAsStream("recursos/blood-splatter.png"));
-		Image imgDisparo = new Image(
-				this.getClass().getClassLoader().getResourceAsStream("recursos/blood-splatter.png"));
 		ImageView fondo = new ImageView(imgFondo);
-		fondo.setFitWidth(ANCHO * ANCHO_CELDA);
-		fondo.setFitHeight(ALTO * ALTO_CELDA);
+		fondo.setFitWidth(ANCHO * ESCALA);
+		fondo.setFitHeight(ALTO * ESCALA);
 		raiz.getChildren().add(fondo);
-
 		Scene escena1 = new Scene(scrollPane);
 		ventana.setScene(escena1);
-
-		raiz.getChildren().add(construirRejilla());
 
 		preparar();
 		ventana.show();
 
-		AnimationTimer anim = new AnimationTimer() {
+		this.cicloJuego = Executors.newScheduledThreadPool(1);
+		this.cicloJuego.scheduleAtFixedRate(new Runnable() {
 
-			private long ultimaAnim;
-			private List<Line> disparos = new ArrayList<>();
+			@Override
+			public void run() {
+				System.out.println("Ejecutando ciclo de juego.");
 
-			int i = 100;
+				// Vemos si ha habido vencedor
+				int numVivos = 0;
+				for (Guerrero guerrero : IArena.guerreros.values())
+					if (guerrero.estado == Estado.VIVO)
+						numVivos++;
+				System.out.println("Quedan " + numVivos + " vivos.");
+				if (numVivos <= 1) {
+					gameOver();
+					return;
+				}
+
+				// Resolvemos las Jugadas
+				movimientos = new HashMap<>();
+				disparos = new HashMap<>();
+
+				for (Guerrero guerrero : IArena.guerreros.values()) {
+					if (guerrero.estado == Estado.MUERTO)
+						continue;
+					try {
+						Jugada jugada = guerrero.getJugada();
+						System.out.println(guerrero.id + ") " + guerrero.nombre + ": " + jugada);
+						if (jugada instanceof Movimiento)
+							resolver(guerrero, (Movimiento) jugada);
+						if (jugada instanceof Disparo) {
+							resolver(guerrero, (Disparo) jugada);
+						}
+					} catch (Exception e) {
+						System.out.println("Error en la jugada de " + guerrero.getClass().getSimpleName());
+						e.printStackTrace();
+					}
+				} // for
+
+				// Resolvemos los movimientos
+				for (Entry<Guerrero, Movimiento> entry : movimientos.entrySet()) {
+					Guerrero guerrero = entry.getKey();
+					Movimiento movimiento = entry.getValue();
+					Posicion destino = null;
+					if (movimiento.posicion != null)
+						destino = movimiento.posicion;
+					if (movimiento.objetivo != null)
+						destino = movimiento.objetivo.posicion;
+
+					double deltaY = destino.y - guerrero.posicion.y;
+					double deltaX = destino.x - guerrero.posicion.x;
+					double angulo = Math.atan2(deltaY, deltaX);
+					guerrero.posicion = new Posicion(guerrero.posicion.x + guerrero.velocidad * Math.cos(angulo),
+							guerrero.posicion.y + guerrero.velocidad * Math.sin(angulo));
+				}
+
+				// Resolvemos los disparos
+				for (Entry<Guerrero, Disparo> entry : disparos.entrySet()) {
+					Guerrero guerrero = IArena.guerreros.get(entry.getKey().id);
+					Disparo disparo = entry.getValue();
+					if (guerrero.disparos <= 0) {
+						System.out.println("Sin balas");
+						break;
+					}
+					guerrero.disparos--;
+					if (IArena.distancia(guerrero.posicion, disparo.objetivo.posicion) < guerrero.alcance_disparo) {
+						System.out.println("DIANA");
+						disparo.resultado = Resultado.DIANA;
+						IArena.guerreros.get(disparo.objetivo.id).vida -= guerrero.dano_disparo;
+					} else {
+						System.out.println("FALLO");
+						disparo.resultado = Resultado.FALLO;
+					}
+				}
+
+				// Mostramos la situación
+				for (Guerrero guerrero : guerreros.values())
+					System.out.println(guerrero);
+
+				setCicloNuevo(true);
+			}
+
+			private void resolver(Guerrero guerrero, Disparo disparo) {
+				// El disparo no es fiable.
+				Posicion destino = null;
+				if (disparo.destino != null)
+					destino = disparo.destino;
+				if (disparo.objetivo != null)
+					destino = IArena.guerreros.get(disparo.objetivo.id).posicion;
+				disparo.destino = destino;
+				IArena.disparos.put(guerrero, disparo);
+			}
+
+			private void resolver(Guerrero guerrero, Movimiento movimiento) {
+				// El movimiento no es fiable
+				Posicion destino = null;
+				if (movimiento.posicion != null)
+					destino = movimiento.posicion;
+				if (movimiento.objetivo != null)
+					destino = IArena.guerreros.get(movimiento.objetivo.id).posicion;
+
+				double deltaY = destino.y - guerrero.posicion.y;
+				double deltaX = destino.x - guerrero.posicion.x;
+				double angulo = Math.atan2(deltaY, deltaX);
+				guerrero.posicion = new Posicion(guerrero.posicion.x + guerrero.velocidad * Math.cos(angulo),
+						guerrero.posicion.y + guerrero.velocidad * Math.sin(angulo));
+
+			}
+		}, 2, INTERVALO_ANIMACION, TimeUnit.SECONDS);
+
+		this.animador = new AnimationTimer() {
+
+			private List<Node> disparosFX = new ArrayList<>();
+			private Map<Guerrero, Node> barrasPuntos = new HashMap<>();
+			private Image imgHerida = new Image(
+					this.getClass().getClassLoader().getResourceAsStream("recursos/blood-splatter.png"));
+			private Image imgAtaud = new Image(
+					this.getClass().getClassLoader().getResourceAsStream("recursos/death.png"));
+
+			// Inicialización
+			{
+				// Colocamos los guerreros en sus posiciones iniciales
+				for (Guerrero guerrero : IArena.guerreros.values()) {
+					guerrero.grupo.setTranslateX(guerrero.posicion.x * ESCALA - ANCHO_GUERRERO / 2);
+					guerrero.grupo.setTranslateY(guerrero.posicion.y * ESCALA - ALTO_GUERRERO / 2);
+					Rectangle barraPuntos = new Rectangle(0, ALTO_GUERRERO, ANCHO_GUERRERO, 4);
+					barraPuntos.setFill(Color.RED);
+					guerrero.grupo.getChildren().add(barraPuntos);
+					barrasPuntos.put(guerrero, barraPuntos);
+				}
+			}
 
 			@Override
 			public void handle(long now) {
-				//Inicialización
-				if (ultimaAnim == 0) {
-					ultimaAnim = now;
-					return;
-				}
-				
-				//Animación de Disparos
-				Iterator<DisparoFX> it = disparosFX.iterator();
-				while (it.hasNext()){
-					DisparoFX disparo = it.next();
-					switch(disparo.mover()){
-					case DIANA:
-						ImageView ivHerida = new ImageView(imgHerida);
-						ivHerida.setFitWidth(ANCHO_CELDA);
-						ivHerida.setPreserveRatio(true);
-						disparo.getObjetivo().grupo.getChildren().add(ivHerida);
-						heridas.add(ivHerida);
-						//Buscamos a quien ha dado
-						for (FichaGuerrero ficha : fichas.values())
-							if (ficha.id == disparo.getObjetivo().id)
-								ficha.vida -= 1;
-					case FALLO:
-						raiz.getChildren().remove(disparo.getNode());
-						it.remove();
-						break;
-					case SIGUE:
-						break;
-					default:
-						break;
-						
-					}
-				}
-				
-				// Animación de Movimientos
-				for (FichaGuerrero ficha : fichas.values()) {
-					if (ficha.grupo.getTranslateX() < ficha.posicion.x * ANCHO_CELDA - ERROR_MOV)
-						ficha.grupo.setTranslateX(ficha.grupo.getTranslateX() + PASO_MOVIMIENTO);
-					if (ficha.grupo.getTranslateX() > ficha.posicion.x * ANCHO_CELDA + ERROR_MOV)
-						ficha.grupo.setTranslateX(ficha.grupo.getTranslateX() - PASO_MOVIMIENTO);
-					if (ficha.grupo.getTranslateY() < ficha.posicion.y * ALTO_CELDA - ERROR_MOV)
-						ficha.grupo.setTranslateY(ficha.grupo.getTranslateY() + PASO_MOVIMIENTO);
-					if (ficha.grupo.getTranslateY() > ficha.posicion.y * ALTO_CELDA + ERROR_MOV)
-						ficha.grupo.setTranslateY(ficha.grupo.getTranslateY() - PASO_MOVIMIENTO);
-				}
 
-				//Retardo para el turno
-				if (now < (ultimaAnim + INTERVALO_ANIMACION * 1E9))
-					return;
-				ultimaAnim = now;
-
-				// Quitamos disparos anteriores
-				for (Line disparo : disparos)
-					raiz.getChildren().remove(disparo);
-
-				// Quitamos las heridas anteriores
-				for (FichaGuerrero ficha : fichas.values()) {
-					Iterator<ImageView> it2 = heridas.iterator();
-					while (it2.hasNext()) {
-						ImageView herida = it2.next();
-						if (ficha.grupo.getChildren().remove(herida))
-							it2.remove();
-						;
-					}
-				}
-
-				// Guardamos disparos y movimientos
-				movimientos = new HashMap<>();
-				for (Guerrero guerrero : guerreros) {
-					Jugada jugada = guerrero.getJugada();
-					System.out.println(guerrero.getClass().getSimpleName() + ": " + jugada);
-					if (jugada instanceof Movimiento)
-						movimientos.put(fichas.get(guerrero), (Movimiento) jugada);
-					if (jugada instanceof Disparo) {
-						for (FichaGuerrero ficha : fichas.values()){
-							System.out.println(ficha.id + " =? " + (((Disparo) jugada).objetivo.id));
-							if (ficha.id == (((Disparo) jugada).objetivo.id)) {
-								System.out.print(fichas.get(guerrero).nombre + " dispara a " + ficha.nombre + "... ");
-								DisparoFX disparoFX = new DisparoFX(fichas.get(guerrero), ficha);
-								raiz.getChildren().add(disparoFX.getNode());
-								disparosFX.add(disparoFX);
-
-								
-//								double startX, startY, endX, endY;
-//								startX = fichas.get(guerrero).posicion.x * ANCHO_CELDA + ANCHO_CELDA / 2;
-//								startY = fichas.get(guerrero).posicion.y * ALTO_CELDA + ALTO_CELDA / 2;
-//								endX = ficha.posicion.x * ANCHO_CELDA + ANCHO_CELDA / 2;
-//								endY = ficha.posicion.y * ALTO_CELDA + ALTO_CELDA / 2;
-//								Line disparo = new Line(startX, startY, endX, endY);
-//								disparo.setStroke(Color.RED);
-//								disparos.add(disparo);
-//								raiz.getChildren().add(disparo);
-//								if (fichas.get(guerrero).disparos > 0) {
-//									fichas.get(guerrero).disparos--;
-//									if (distancia(fichas.get(guerrero).posicion, ficha.posicion) < DISTANCIA_DISPARO) {
-//										ficha.vida -= 1;
-//										System.out.println(" Y le da.");
-//										ImageView ivHerida = new ImageView(imgHerida);
-//										ivHerida.setFitWidth(ANCHO_CELDA);
-//										ivHerida.setPreserveRatio(true);
-//										ficha.grupo.getChildren().add(ivHerida);
-//										heridas.add(ivHerida);
-//									} else
-//										System.out.println(" Y no le da.");
-//								} else
-//									System.out.println("Pero no tiene balas.");
-								break;
+				if (cicloNuevo) {
+					// Quitamos los disparos del ciclo anterior
+					for (Node disparoFX : disparosFX)
+						raiz.getChildren().remove(disparoFX);
+					disparosFX = new ArrayList<>();
+					for(Guerrero guerrero : IArena.guerreros.values()){
+						if (guerrero.estado == Estado.VIVO){
+							Rectangle barraPuntos = (Rectangle)barrasPuntos.get(guerrero);
+							barraPuntos.setWidth(ANCHO_GUERRERO * guerrero.vida/guerrero.vidaInicial);
+							if (guerrero.vida <= 0) {
+								ImageView ivAtaud = new ImageView(imgAtaud);
+								ivAtaud.setFitHeight(ALTO_GUERRERO);
+								ivAtaud.setPreserveRatio(true);
+								guerrero.grupo.getChildren().add(ivAtaud);
+								guerrero.estado = Estado.MUERTO;
 							}
 						}
 					}
-				}
-
-				// Resolvemos los movimientos
-				for (Entry<FichaGuerrero, Movimiento> entry : movimientos.entrySet()) {
-					FichaGuerrero ficha = entry.getKey();
-					switch (entry.getValue().direccion) {
-					case Abajo:
-						if (ficha.posicion.y < (ALTO - 1))
-							ficha.posicion.y++;
-						break;
-					case Arriba:
-						if (ficha.posicion.y > 0)
-							ficha.posicion.y--;
-						break;
-					case Derecha:
-						if (ficha.posicion.x < (ANCHO - 1))
-							ficha.posicion.x++;
-						break;
-					case Izquierda:
-						if (ficha.posicion.x > 0)
-							ficha.posicion.x--;
-						break;
+					// Colocamos los disparos en sus posiciones iniciales
+					for (Entry<Guerrero, Disparo> entry : IArena.disparos.entrySet()) {
+						System.out.println("Colocando disparo");
+						Disparo disparo = entry.getValue();
+						Guerrero tirador = entry.getKey();
+						Circle proyectil = new Circle(RADIO_DISPARO);
+						proyectil.setFill(Color.RED);
+						disparo.grupo.getChildren().add(proyectil);
+						disparo.grupo.setTranslateX(tirador.grupo.getTranslateX() * ESCALA + ANCHO_GUERRERO / 2);
+						disparo.grupo.setTranslateY(tirador.grupo.getTranslateY() * ESCALA + ALTO_GUERRERO / 2);
+						disparosFX.add(disparo.grupo);
+						raiz.getChildren().add(disparo.grupo);
 					}
-					// ficha.grupo.setTranslateX(ficha.posicion.x *
-					// ANCHO_CELDA);
-					// ficha.grupo.setTranslateY(ficha.posicion.y * ALTO_CELDA);
+					cicloNuevo = false;
 				}
 
-				// Vemos si alguno ha muerto
-				Iterator<Entry<Guerrero, FichaGuerrero>> it3 = fichas.entrySet().iterator();
-				while (it3.hasNext()) {
-					Entry<Guerrero, FichaGuerrero> entry = it3.next();
-					System.out.println(entry.getValue());
-					if (entry.getValue().vida <= 0) {
-						System.out.println("Ha muerto " + entry.getValue().nombre);
-						raiz.getChildren().remove(entry.getValue().grupo);
-						guerreros.remove(entry.getKey());
-						it3.remove();
+				// Animación de Disparos
+				Iterator<Entry<Guerrero, Disparo>> it = IArena.disparos.entrySet().iterator();
+				while (it.hasNext()) {
+					Entry<Guerrero, Disparo> entry = it.next();
+					Disparo disparo = entry.getValue();
+					Guerrero tirador = entry.getKey();
+					Posicion pActual = new Posicion(disparo.grupo.getTranslateX(), disparo.grupo.getTranslateY());
+
+					// Movemos el disparo
+					// System.out.println("DISPARO: " + pActual + " -> " +
+					// disparo.destino);
+					double deltaY = disparo.destino.y * ESCALA - ALTO_GUERRERO / 2 - disparo.grupo.getTranslateY();
+					double deltaX = disparo.destino.x * ESCALA - ANCHO_GUERRERO / 2 - disparo.grupo.getTranslateX();
+					double angulo = Math.atan2(deltaY, deltaX);
+					disparo.grupo.setTranslateX(disparo.grupo.getTranslateX() + PASO_DISPARO * Math.cos(angulo));
+					disparo.grupo.setTranslateY(disparo.grupo.getTranslateY() + PASO_DISPARO * Math.sin(angulo));
+
+					// Vemos si ha llegado al final
+					double xInicial = tirador.grupo.getTranslateX() * ESCALA + ANCHO_GUERRERO / 2;
+					double yInicial = tirador.grupo.getTranslateY() * ESCALA + ANCHO_GUERRERO / 2;
+					double xActual = disparo.grupo.getTranslateX() + RADIO_DISPARO / Math.sqrt(2);
+					double yActual = disparo.grupo.getTranslateY() + RADIO_DISPARO / Math.sqrt(2);
+					// distancia en pixels
+					double distancia = Math.sqrt(Math.pow(xInicial - xActual, 2) + Math.pow(yInicial - yActual, 2));
+					if (distancia > tirador.alcance_disparo / ESCALA) {
+						// Quitamos el disparo
+						System.out.println("QUITAMOS el disparo.");
+						raiz.getChildren().remove(disparo.grupo);
+						disparosFX.remove(disparo.grupo);
+						it.remove();
+						continue;
+					}
+
+					// Vemos si le da
+					if (disparo.objetivo != null) {
+						Guerrero objetivo = guerreros.get(disparo.objetivo.id);
+						if (xActual > objetivo.grupo.getTranslateX()
+								&& xActual < objetivo.grupo.getTranslateX() + ANCHO_GUERRERO)
+							if (yActual > objetivo.grupo.getTranslateY()
+									&& yActual < objetivo.grupo.getTranslateY() + ANCHO_GUERRERO) {
+								System.out.println("Le da");
+								ImageView ivHerida = new ImageView(imgHerida);
+								ivHerida.setFitWidth(ANCHO_GUERRERO);
+								ivHerida.setPreserveRatio(true);
+								disparo.grupo.getChildren().removeAll(disparo.grupo.getChildren());
+								disparo.grupo.getChildren().add(ivHerida);
+								it.remove();// Ya no se moverá
+							}
+
 					}
 				}
-
-				if (guerreros.size() == 1) {
-					this.stop();
-					gameOver();
-				}
-			}
+				// Animación de Movimientos
+				for (Guerrero guerrero : IArena.guerreros.values()) {
+					// Calculamos diferencias entre posición de destino y
+					// posición actual del Group.
+					double deltaY = guerrero.posicion.y * ESCALA - ALTO_GUERRERO / 2 - guerrero.grupo.getTranslateY();
+					double deltaX = guerrero.posicion.x * ESCALA - ANCHO_GUERRERO / 2 - guerrero.grupo.getTranslateX();
+					if (Math.abs(deltaY) > PASO_MOVIMIENTO || Math.abs(deltaX) > PASO_MOVIMIENTO) {
+						double angulo = Math.atan2(deltaY, deltaX);
+						guerrero.grupo.setTranslateX(
+								guerrero.grupo.getTranslateX() + PASO_MOVIMIENTO * Math.cos(angulo));
+						guerrero.grupo.setTranslateY(
+								guerrero.grupo.getTranslateY() + PASO_MOVIMIENTO * Math.sin(angulo));
+					}
+				} // for
+			}// handle()
 		};
-		anim.start();
+		this.animador.start();
+
+	}
+
+	@Override
+	public void stop() {
+		System.out.println("Stage is closing");
+		this.cicloJuego.shutdown();
+	}
+
+	protected void setCicloNuevo(boolean b) {
+		this.cicloNuevo = b;
 	}
 
 	private void gameOver() {
-		System.out.println("Ha ganado " + guerreros.get(0).getClass().getSimpleName());
-	}
-
-	private Node construirRejilla() {
-		Group rejilla = new Group();
-		Color color = Color.RED;
-		for (int i = 0; i < ANCHO; i++) {
-			Line linea = new Line(ANCHO_CELDA * (i + 1), 0, ANCHO_CELDA * (i + 1) + 1, ALTO * ALTO_CELDA);
-			linea.setStroke(color);
-			rejilla.getChildren().add(linea);
-		}
-		for (int i = 0; i < ALTO; i++) {
-			Line linea = new Line(0, ALTO_CELDA * (i + 1), ANCHO * ANCHO_CELDA, ALTO_CELDA * (i + 1) + 1);
-			linea.setStroke(color);
-			rejilla.getChildren().add(linea);
-		}
-
-		return rejilla;
+		System.out.println("Ha ganado " + guerreros.get(0).getIdentificacion());
+		this.cicloJuego.shutdown();
 	}
 
 	private void preparar() {
 		FactoriaGuerreros fg = new FactoriaGuerreros();
-		guerreros = fg.getGuerreros();
-		fichas = new HashMap<>();
-		int i = 1;
-		for (Guerrero guerrero : guerreros) {
-			FichaGuerrero ficha = new FichaGuerrero();
-			ficha.nombre = guerrero.getClass().getSimpleName();
-			ficha.posicion = new Posicion(rand.nextInt(ANCHO), rand.nextInt(ALTO));
-			i++;
-			ficha.disparos = DISPAROS;
-			ficha.vida = VIDA;
-			fichas.put(guerrero, ficha);
+		IArena.guerreros = new HashMap<>();
+		IArena.movimientos = new HashMap<>();
+		IArena.disparos = new HashMap<>();
+
+		List<Guerrero> listaGuerreros = fg.getGuerreros();
+		Collections.shuffle(listaGuerreros);
+		for (Guerrero guerrero : listaGuerreros) {
+			if (!guerrero.esValido()){
+				System.out.println("El guerrero " + guerrero.getIdentificacion() + " es rechazado.");
+				continue;
+			}
+			if (guerrero.nombre == null)
+				guerrero.nombre = guerrero.getClass().getSimpleName();
+			guerrero.posicion = new Posicion(rand.nextInt(ANCHO), rand.nextInt(ALTO));
+			Guerrero clon = guerrero.clon();
 			ImageView avatar = new ImageView(guerrero.getAvatar());
-			avatar.setFitHeight(ALTO_CELDA);
+			avatar.setFitHeight(ALTO_GUERRERO);
 			avatar.setPreserveRatio(true);
-			ficha.grupo = new Group();
-			ficha.grupo.getChildren().add(avatar);
-			ficha.grupo.setTranslateX(ficha.posicion.x * ANCHO_CELDA);
-			ficha.grupo.setTranslateY(ficha.posicion.y * ALTO_CELDA);
-			raiz.getChildren().add(ficha.grupo);
+			clon.grupo = new Group();
+			clon.grupo.getChildren().add(avatar);
+			raiz.getChildren().add(clon.grupo);
+			clon.grupo.setTranslateX(clon.posicion.x * ESCALA - ANCHO_GUERRERO / 2);
+			clon.grupo.setTranslateY(clon.posicion.y * ESCALA - ALTO_GUERRERO / 2);
+
+			IArena.guerreros.put(clon.id, clon); // La lista que maneja IArena
+													// (con el Group)
 		}
-		System.out.println("Registrados " + fichas.size() + " guerreros: ");
-		for (FichaGuerrero ficha : fichas.values())
-			System.out.println("\t" + ficha.nombre);
+		System.out.println("Registrados " + IArena.guerreros.size() + " guerreros.");
 
 		System.out.println("Comienza la lucha...");
 	}
 
-	public static List<FichaGuerrero> getFichas() {
-		List<FichaGuerrero> listaFichas = new ArrayList<>();
-		for (FichaGuerrero ficha : fichas.values())
-			listaFichas.add(ficha.clon());
-		return listaFichas;
+	public static List<Guerrero> getGuerreros() {
+		List<Guerrero> clones = new ArrayList<>();
+		for (Guerrero guerrero : IArena.guerreros.values())
+			clones.add(guerrero.clon());
+		return clones;
 	}
 
-	public static FichaGuerrero getMiFicha(Guerrero yo){
-		return fichas.get(yo);
+	public static List<Guerrero> getEnemigosVivos(Guerrero yo) {
+		List<Guerrero> clones = new ArrayList<>();
+		for (Guerrero guerrero : IArena.guerreros.values())
+			if ((guerrero.id != yo.id) && (guerrero.estado == Estado.VIVO))
+				clones.add(guerrero.clon());
+		return clones;
 	}
-	
+
 	public static double distancia(Posicion a, Posicion b) {
 		return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
 	}
-	
-	public static double distancia(Node n1, Node n2) {
-		return Math.sqrt(Math.pow(n1.getTranslateX() - n2.getTranslateX(), 2) + Math.pow(n1.getTranslateY() - n2.getTranslateY(), 2));
+
+	public static double distanciaFX(Node n1, Node n2) {
+		return Math.sqrt(Math.pow(n1.getTranslateX() - n2.getTranslateX(), 2)
+				+ Math.pow(n1.getTranslateY() - n2.getTranslateY(), 2));
 	}
 
 }

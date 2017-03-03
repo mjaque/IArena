@@ -1,16 +1,23 @@
 package iarena;
 
 public class Movimiento extends Jugada{
-	public enum Direccion {Arriba, Abajo, Izquierda, Derecha};
-	public Direccion direccion;
+	public Posicion posicion = null;
+	public Guerrero objetivo = null;
 	
-	public Movimiento(Direccion dir){
-		this.direccion = dir;
+	public Movimiento(Posicion posicion){
+		this.posicion = posicion;
+	}
+	
+	public Movimiento(Guerrero objetivo){
+		this.objetivo = objetivo;
 	}
 
 	@Override
 	public String toString() {
-		return "Movimiento [direccion=" + direccion + "]";
+		if (posicion != null)
+			return "Movimiento [posicion = " + posicion + "]";
+		else
+			return "Movimiento [objetivo = " + objetivo.getIdentificacion() + "]";
 	}
 	
 }

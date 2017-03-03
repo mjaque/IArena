@@ -12,9 +12,14 @@ public class FactoriaGuerreros implements InterfaceFactoriaGuerreros{
 	public List<Guerrero> getGuerreros() {
 		List<Guerrero> lista = new ArrayList<>();
 		lista.add(new Sparring());
+		lista.add(new Sparring());
+		lista.add(new Berserk());
 		lista.add(new Berserk());
 		lista.add(new Shooter());
-		lista.add(new PsychoKiller());
+		//lista.add(new Minho());
+		//lista.add(new Sabueso());
+		//lista.add(new TPM());
+		//lista.add(new PsychoKiller());
 		return lista;
 	}
 

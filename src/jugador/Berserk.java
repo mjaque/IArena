@@ -5,39 +5,35 @@ import java.util.List;
 import java.util.Random;
 
 import iarena.Disparo;
-import iarena.FichaGuerrero;
 import iarena.Guerrero;
 import iarena.Jugada;
 import iarena.Movimiento;
-import iarena.Movimiento.Direccion;
 import iarena.app.IArena;
 import javafx.scene.image.Image;
 
-public class Berserk extends Guerrero{
+public class Berserk extends Guerrero {
 
 	Random rand = new Random();
 	
+	public Berserk(){
+		super();
+		this.nombre = "Berserk";
+		this.disparos = 50;
+		this.vidaInicial = 10;
+		this.velocidad = 10;
+		this.alcance_disparo = 200;
+		this.dano_disparo = 3;
+	}
+
 	@Override
 	public Jugada getJugada() {
-		switch (rand.nextInt(2)){
-		case 0:	//Se mueve
-			switch (rand.nextInt(4)){
-			case 0:
-				return new Movimiento(Direccion.Arriba);
-			case 1:
-				return new Movimiento(Direccion.Abajo);
-			case 2:
-				return new Movimiento(Direccion.Izquierda);
-			case 3:
-				return new Movimiento(Direccion.Derecha);
-			}
+		List<Guerrero> enemigos = IArena.getEnemigosVivos(this);
+		Collections.shuffle(enemigos);
+		switch (rand.nextInt(2)) {
+		case 0: // Se mueve
+			return new Movimiento(enemigos.get(0));
 		case 1:
-			List<FichaGuerrero> fichas = IArena.getFichas();
-			Collections.shuffle(fichas);
-			for(FichaGuerrero ficha : fichas){
-				if (!ficha.nombre.equals(this.getClass().getSimpleName()))
-					return new Disparo(ficha);
-			}
+			return new Disparo(enemigos.get(0));
 		}
 		return null;
 	}

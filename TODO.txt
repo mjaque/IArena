@@ -1,5 +1,18 @@
 TODO:
 
+- Manejar pixels:
+	- Recuperar disparos.
+- Separar Timer y AnimationTimer
+	- Timer: implementa el ciclo de juego:
+		- Mov: Cambia la posición del jugador a su nueva posición.
+		- Disparo: Gestiona una lista de disparos FX.
+			- Gestiona, si el disparo ha llegado a su destino, los puntos, etc.
+	- AnimationTimer:
+		- Mueve los Guerreros desde su TranslateX a su posición de destino.
+		- Mueve los disparos. Si no están en la raíz los añade.
+- Poner barra de vida.
+- Hacer jugador Humano.
+
 - Si el tiro pasa por un obstáculo (jugador), le da al otro.
 - BUG: Se salen del tablero.
 - Guerrero.Shooter - Se situa en una esquina y dispara a todo el que esté a tiro.

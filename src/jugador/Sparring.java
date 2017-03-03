@@ -5,6 +5,16 @@ import iarena.Jugada;
 import javafx.scene.image.Image;
 
 public class Sparring extends Guerrero{
+	
+	public Sparring(){
+		super();
+		this.nombre = "Sparring";
+		this.disparos = 0;
+		this.vidaInicial = 10;
+		this.velocidad = 0;
+		this.alcance_disparo = 0;
+		this.dano_disparo = 0;
+	}
 
 	@Override
 	public Jugada getJugada() {
