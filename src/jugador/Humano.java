@@ -5,17 +5,26 @@ import iarena.Jugada;
 import javafx.scene.image.Image;
 
 public class Humano extends Guerrero{
+	public Jugada jugada = null;
+	
+	public Humano(){
+		super();
+		this.nombre = "Paty";
+		this.disparos = 50;
+		this.vidaInicial = 10;
+		this.velocidad = 10;
+		this.alcance_disparo = 200;
+		this.dano_disparo = 3;
+	}
 
 	@Override
 	public Jugada getJugada() {
-		// TODO Auto-generated method stub
-		return null;
+		return jugada;
 	}
 
 	@Override
 	public Image getAvatar() {
-		// TODO Auto-generated method stub
-		return null;
+		return new Image(this.getClass().getClassLoader().getResourceAsStream("recursos/MusketeerCard.png"));
 	}
 
 }
