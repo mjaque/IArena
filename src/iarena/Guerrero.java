@@ -10,12 +10,11 @@ public abstract class Guerrero {
 	public Group grupo;
 	public Posicion posicion;
 	public Estado estado;
-	public int vida;
 	
 	//Atributos configurables
 	public String nombre;
 	public double velocidad;
-	public int vidaInicial;
+	public int vida;
 	public int disparos;
 	public int alcance_disparo;
 	public int dano_disparo;
@@ -27,26 +26,9 @@ public abstract class Guerrero {
 			this.nombre = getClass().getSimpleName();
 		this.disparos = 50;
 		this.vida = 10;
-		this.vidaInicial = vida;
 		this.velocidad = 10;
 		this.alcance_disparo = 1500;
 		this.dano_disparo = 1;
-	}
-	
-	public Guerrero clon(){
-		Guerrero clon = null;
-		try {
-			clon = getClass().getDeclaredConstructor().newInstance();
-			clon.id = this.id;
-			clon.nombre = this.nombre;
-			clon.posicion = new Posicion(this.posicion.x, this.posicion.y);
-			clon.velocidad = velocidad;
-			clon.vida = this.vida;
-			clon.disparos = this.disparos;
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return clon;
 	}
 	
 	public abstract Jugada getJugada();
@@ -63,8 +45,8 @@ public abstract class Guerrero {
 	}
 
 	public boolean esValido() {
-		System.out.println(this.nombre + ": " + (this.disparos + this.vidaInicial + this.velocidad + this.alcance_disparo / 10 + this.dano_disparo));
-		return (this.disparos + this.vidaInicial + this.velocidad + this.alcance_disparo / 10 + this.dano_disparo) <= 100;
+		//System.out.println(this.nombre + ": " + (this.disparos + this.vidaInicial + this.velocidad + this.alcance_disparo / 10 + this.dano_disparo));
+		return (Math.abs(this.disparos) + Math.abs(this.vida) + Math.abs(this.velocidad) + Math.abs(this.alcance_disparo / 10) + Math.abs(this.dano_disparo)) <= 100;
 	}
 	
 }

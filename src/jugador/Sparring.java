@@ -10,7 +10,7 @@ public class Sparring extends Guerrero{
 		super();
 		this.nombre = "Sparring";
 		this.disparos = 0;
-		this.vidaInicial = 10;
+		this.vida = 10;
 		this.velocidad = 0;
 		this.alcance_disparo = 0;
 		this.dano_disparo = 0;

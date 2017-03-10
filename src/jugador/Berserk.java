@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Random;
 
 import iarena.Disparo;
+import iarena.FichaGuerrero;
 import iarena.Guerrero;
 import iarena.Jugada;
 import iarena.Movimiento;
@@ -19,21 +20,21 @@ public class Berserk extends Guerrero {
 		super();
 		this.nombre = "Berserk";
 		this.disparos = 50;
-		this.vidaInicial = 10;
+		this.vida = 10;
 		this.velocidad = 10;
-		this.alcance_disparo = 200;
+		this.alcance_disparo = 209;
 		this.dano_disparo = 3;
 	}
 
 	@Override
 	public Jugada getJugada() {
-		List<Guerrero> enemigos = IArena.getEnemigosVivos(this);
+		List<FichaGuerrero> enemigos = IArena.getEnemigosVivos(this);
 		Collections.shuffle(enemigos);
 		switch (rand.nextInt(2)) {
 		case 0: // Se mueve
-			return new Movimiento(enemigos.get(0));
+			return new Movimiento(enemigos.get(0).guerrero);
 		case 1:
-			return new Disparo(enemigos.get(0));
+			return new Disparo(enemigos.get(0).guerrero);
 		}
 		return null;
 	}
